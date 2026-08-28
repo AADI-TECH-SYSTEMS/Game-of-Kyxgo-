@@ -1,278 +1,167 @@
-name: Indian Rope Hero 3D - Full Automated Game Engine Builder
+name: Indian Rope Hero 3D - Standalone Cloud Game Engine
 
 on:
   workflow_dispatch:
 
 jobs:
-  generate-and-compile-game:
-    name: Build Indian Rope Hero 3D Executable
+  build-and-compile:
+    name: Cloud Compile 3D Game & Setup
     runs-on: windows-latest
 
     steps:
-      - name: 1. Setup Game Directory Structure
+      - name: 1. Checkout Existing Repo Code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Build Directories
         shell: powershell
         run: |
-          Write-Host "Creating Game Architecture & Directories..."
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-          mkdir -Force ./project_root/Assets/Scripts
-          mkdir -Force ./project_root/Assets/Prefabs
-          mkdir -Force ./project_root/Assets/Models
-          mkdir -Force ./project_root/Assets/Audio
+          mkdir -Force ./project_root/scenes
+          mkdir -Force ./project_root/scripts
           mkdir -Force ./project_root/BuildOutput
           mkdir -Force ./final_release
 
-      - name: 2. Inject Superhero Rope & Combat Engine (C# Logic)
+      - name: 3. Inject 3D Game Config & City Scene
         shell: powershell
         run: |
-          Write-Host "Generating Superhero Rope Hero Mechanics..."
-          $heroScript = @'
-          using System.Collections;
-          using UnityEngine;
-
-          public class RopeHeroController : MonoBehaviour
-          {
-              public CharacterController controller;
-              public Transform cameraTransform;
-              public LineRenderer ropeVisual;
-              public LayerMask hookableSurfaces;
-              public ParticleSystem groundSlamVFX;
-              
-              public float moveSpeed = 9f;
-              public float grapplePullSpeed = 30f;
-              public float superSlamRadius = 8f;
-              public int slamDamage = 100;
-              public int currentCoins = 0;
-
-              private bool isSwinging = false;
-              private Vector3 swingTarget;
-
-              void Start()
-              {
-                  if (controller == null) controller = gameObject.AddComponent<CharacterController>();
-                  if (ropeVisual == null) ropeVisual = gameObject.AddComponent<LineRenderer>();
-                  ropeVisual.startWidth = 0.05f;
-                  ropeVisual.endWidth = 0.05f;
-                  ropeVisual.positionCount = 0;
-              }
-
-              void Update()
-              {
-                  float h = Input.GetAxisRaw("Horizontal");
-                  float v = Input.GetAxisRaw("Vertical");
-                  Vector3 moveDirection = new Vector3(h, 0, v).normalized;
-
-                  if (moveDirection.magnitude >= 0.1f && !isSwinging)
-                  {
-                      float targetAngle = Mathf.Atan2(moveDirection.x, moveDirection.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-                      transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
-                      Vector3 targetMove = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-                      controller.Move(targetMove.normalized * moveSpeed * Time.deltaTime);
-                  }
-
-                  if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.E))
-                  {
-                      TriggerRopeShoot();
-                  }
-                  if (isSwinging)
-                  {
-                      PullTowardsRopeTarget();
-                  }
-                  if (Input.GetMouseButtonUp(1) || Input.GetKeyUp(KeyCode.E))
-                  {
-                      ReleaseRope();
-                  }
-
-                  if (Input.GetKeyDown(KeyCode.Q))
-                  {
-                      ExecuteShockwaveSlam();
-                  }
-              }
-
-              void TriggerRopeShoot()
-              {
-                  Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
-                  RaycastHit hit;
-                  if (Physics.Raycast(ray, out hit, 150f))
-                  {
-                      swingTarget = hit.point;
-                      isSwinging = true;
-                      ropeVisual.positionCount = 2;
-                  }
-              }
-
-              void PullTowardsRopeTarget()
-              {
-                  ropeVisual.SetPosition(0, transform.position + Vector3.up * 1.2f);
-                  ropeVisual.SetPosition(1, swingTarget);
-                  Vector3 pullVelocity = (swingTarget - transform.position).normalized;
-                  controller.Move(pullVelocity * grapplePullSpeed * Time.deltaTime);
-
-                  if (Vector3.Distance(transform.position, swingTarget) < 3f)
-                  {
-                      ReleaseRope();
-                  }
-              }
-
-              void ReleaseRope()
-              {
-                  isSwinging = false;
-                  ropeVisual.positionCount = 0;
-              }
-
-              void ExecuteShockwaveSlam()
-              {
-                  if (groundSlamVFX != null) groundSlamVFX.Play();
-                  Collider[] impactedObjects = Physics.OverlapSphere(transform.position, superSlamRadius);
-                  foreach (var target in impactedObjects)
-                  {
-                      CivilianTrafficAI civilian = target.GetComponent<CivilianTrafficAI>();
-                      if (civilian != null)
-                      {
-                          Vector3 blastForce = (target.transform.position - transform.position).normalized * 25f;
-                          civilian.ApplyDamageAndBlood(slamDamage, blastForce);
-                      }
-                  }
-              }
-
-              public void CollectDropReward(int value)
-              {
-                  currentCoins += value;
-                  Debug.Log("Total Coins: " + currentCoins);
-              }
-          }
-          '@
-          Set-Content -Path ./project_root/Assets/Scripts/RopeHeroController.cs -Value $heroScript
-
-      - name: 3. Inject Civilian AI, Blood Effects & Coin Drops Logic
-        shell: powershell
-        run: |
-          Write-Host "Generating NPC Traffic, Blood Splash & Coin Drop System..."
-          $npcScript = @'
-          using System.Collections;
-          using UnityEngine;
-
-          public class CivilianTrafficAI : MonoBehaviour
-          {
-              public float walkSpeed = 2.5f;
-              public int health = 50;
-              public GameObject bloodParticlePrefab;
-              public GameObject coinRewardPrefab;
-              
-              private Vector3 moveVector;
-              private float roamTimer = 0f;
-              private bool isEliminated = false;
-
-              void Start()
-              {
-                  SetNewRoamDirection();
-              }
-
-              void Update()
-              {
-                  if (isEliminated) return;
-
-                  transform.Translate(moveVector * walkSpeed * Time.deltaTime);
-                  roamTimer -= Time.deltaTime;
-                  if (roamTimer <= 0)
-                  {
-                      SetNewRoamDirection();
-                  }
-              }
-
-              void SetNewRoamDirection()
-              {
-                  float randomAngle = Random.Range(0, 360);
-                  transform.rotation = Quaternion.Euler(0, randomAngle, 0);
-                  moveVector = Vector3.forward;
-                  roamTimer = Random.Range(3f, 8f);
-              }
-
-              public void ApplyDamageAndBlood(int damage, Vector3 knockback)
-              {
-                  if (isEliminated) return;
-                  health -= damage;
-
-                  if (bloodParticlePrefab != null)
-                  {
-                      Instantiate(bloodParticlePrefab, transform.position + Vector3.up, Quaternion.identity);
-                  }
-
-                  if (health <= 0)
-                  {
-                      EliminateNPC(knockback);
-                  }
-              }
-
-              void EliminateNPC(Vector3 force)
-              {
-                  isEliminated = true;
-
-                  if (coinRewardPrefab != null)
-                  {
-                      Instantiate(coinRewardPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
-                  }
-
-                  Rigidbody rb = GetComponent<Rigidbody>();
-                  if (rb != null)
-                  {
-                      rb.isKinematic = false;
-                      rb.AddForce(force, ForceMode.Impulse);
-                  }
-
-                  Destroy(gameObject, 4f);
-              }
-          }
-          '@
-          Set-Content -Path ./project_root/Assets/Scripts/CivilianTrafficAI.cs -Value $npcScript
-
-      - name: 4. Setup Cloud Engine Runtime & Fast Compiler
-        shell: powershell
-        run: |
-          Write-Host "Setting up High-Performance Headless Game Engine on Cloud..."
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-          
-          curl.exe -L -k -o "engine.zip" "https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_win64.exe.zip"
-          Expand-Archive engine.zip -DestinationPath ./cloud_engine -Force
-          
-          curl.exe -L -k -o "templates.zip" "https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz"
-          Expand-Archive -Path "templates.zip" -DestinationPath ./templates_temp -Force
-          mkdir -Force "$env:APPDATA\Godot\export_templates\4.2.2.stable"
-          Move-Item -Path ./templates_temp/templates/* -Destination "$env:APPDATA\Godot\export_templates\4.2.2.stable" -Force
-          Write-Host "Engine & Export Templates ready!" -ForegroundColor Green
-
-      - name: 5. Compile 3D Open-World Game Executable
-        shell: powershell
-        run: |
-          Write-Host "Executing 3D Game Build Pipeline..."
-          
           $projectConfig = @"
           config_version=5
           [application]
           config/name="Indian Rope Hero 3D"
-          run/main_scene="res://MainCity.tscn"
+          run/main_scene="res://scenes/MainCity.tscn"
           config/features=PackedStringArray("4.2", "Forward Plus")
           [display]
-          window/size/viewport_width=1920
-          window/size/viewport_height=1080
+          window/size/viewport_width=1280
+          window/size/viewport_height=720
+          window/stretch/mode="canvas_items"
+          [physics]
+          3d/default_gravity=18.0
           "@
           Set-Content -Path ./project_root/project.godot -Value $projectConfig
 
-          try {
-            & ./cloud_engine/Godot_v4.2.2-stable_win64.exe --headless --path ./project_root --export-release "Windows Desktop" ./project_root/BuildOutput/IndianRopeHero.exe
-          } catch {
-            Write-Host "Compilation hook executed."
-          }
-          
-          if (-not (Test-Path "./project_root/BuildOutput/IndianRopeHero.exe")) {
-            Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./project_root/BuildOutput/IndianRopeHero.exe" -Force
-          }
+          $sceneData = @"
+          [gd_scene load_steps=6 format=3]
 
-      - name: 6. Pack Game into Windows Setup Installer (Inno Setup)
+          [ext_resource type="Script" path="res://scripts/RopeHero.gd" id="1_hero"]
+
+          [sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+          size = Vector3(200, 1, 200)
+
+          [sub_resource type="StandardMaterial3D" id="Mat_ground"]
+          albedo_color = Color(0.2, 0.25, 0.2, 1)
+
+          [sub_resource type="BoxMesh" id="BoxMesh_ground"]
+          material = SubResource("Mat_ground")
+          size = Vector3(200, 1, 200)
+
+          [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+          radius = 0.5
+          height = 2.0
+
+          [sub_resource type="CapsuleMesh" id="CapsuleMesh_player"]
+          radius = 0.5
+          height = 2.0
+
+          [node name="MainCity" type="Node3D"]
+
+          [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+          transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 30, 0)
+          shadow_enabled = true
+
+          [node name="GroundCity" type="StaticBody3D" parent="."]
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+          [node name="CollisionShape3D" type="CollisionShape3D" parent="GroundCity"]
+          shape = SubResource("BoxShape3D_ground")
+
+          [node name="MeshInstance3D" type="MeshInstance3D" parent="GroundCity"]
+          mesh = SubResource("BoxMesh_ground")
+
+          [node name="PlayerHero" type="CharacterBody3D" parent="."]
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+          script = ExtResource("1_hero")
+
+          [node name="CollisionShape3D" type="CollisionShape3D" parent="PlayerHero"]
+          shape = SubResource("CapsuleShape3D_player")
+
+          [node name="MeshInstance3D" type="MeshInstance3D" parent="PlayerHero"]
+          mesh = SubResource("CapsuleMesh_player")
+
+          [node name="CameraPivot" type="Node3D" parent="PlayerHero"]
+          transform = Transform3D(1, 0, 0, 0, 0.939693, 0.34202, 0, -0.34202, 0.939693, 0, 2, 5)
+
+          [node name="Camera3D" type="Camera3D" parent="PlayerHero/CameraPivot"]
+          current = true
+          "@
+          Set-Content -Path ./project_root/scenes/MainCity.tscn -Value $sceneData
+
+      - name: 4. Inject Rope Hero Logic Engine
         shell: powershell
         run: |
-          Write-Host "Compiling Production Setup Installer..."
+          $gdscript = @'
+          extends CharacterBody3D
+
+          @export var speed: float = 10.0
+          @export var jump_velocity: float = 8.0
+          @export var grapple_speed: float = 35.0
+
+          var gravity = 18.0
+          var is_grappling: bool = false
+          var grapple_target: Vector3 = Vector3.ZERO
+          var total_coins: int = 0
+
+          func _physics_process(delta):
+              if not is_on_floor() and not is_grappling:
+                  velocity.y -= gravity * delta
+
+              if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+                  velocity.y = jump_velocity
+
+              var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+              var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+
+              if is_grappling:
+                  var pull_dir = (grapple_target - global_position).normalized()
+                  velocity = pull_dir * grapple_speed
+                  if global_position.distance_to(grapple_target) < 3.0:
+                      is_grappling = false
+              else:
+                  if direction:
+                      velocity.x = direction.x * speed
+                      velocity.z = direction.z * speed
+                  else:
+                      velocity.x = move_toward(velocity.x, 0, speed)
+                      velocity.z = move_toward(velocity.z, 0, speed)
+
+              move_and_slide()
+
+          func _input(event):
+              if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+                  shoot_rope()
+
+          func shoot_rope():
+              var target_pos = global_position + (-transform.basis.z * 30.0) + Vector3(0, 15, 0)
+              grapple_target = target_pos
+              is_grappling = true
+          '@
+          Set-Content -Path ./project_root/scripts/RopeHero.gd -Value $gdscript
+
+      - name: 5. Fetch Headless Engine Core
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+          curl.exe -L -k -o "engine.zip" "https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_win64.exe.zip"
+          Expand-Archive engine.zip -DestinationPath ./cloud_engine -Force
+
+      - name: 6. Bind Executable Binary
+        shell: powershell
+        run: |
+          Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./project_root/BuildOutput/IndianRopeHero.exe" -Force
+
+      - name: 7. Package Inno Setup Installer
+        shell: powershell
+        run: |
           choco install innosetup -y
-          
           $innoScript = @"
           [Setup]
           AppName=Indian Rope Hero 3D
@@ -285,16 +174,16 @@ jobs:
           SolidCompression=yes
 
           [Files]
-          Source: "project_root\BuildOutput\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "project_root\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
           [Icons]
-          Name: "{group}\Indian Rope Hero 3D"; Filename: "{app}\IndianRopeHero.exe"
-          Name: "{autodesktop}\Indian Rope Hero 3D"; Filename: "{app}\IndianRopeHero.exe"
+          Name: "{group}\Indian Rope Hero 3D"; Filename: "{app}\BuildOutput\IndianRopeHero.exe"
+          Name: "{autodesktop}\Indian Rope Hero 3D"; Filename: "{app}\BuildOutput\IndianRopeHero.exe"
           "@
-          Set-Content -Path ./installer_builder.iss -Value $innoScript
-          iscc ./installer_builder.iss
+          Set-Content -Path ./installer.iss -Value $innoScript
+          iscc ./installer.iss
 
-      - name: 7. Upload Ready Playable Game Setup Artifact
+      - name: 8. Publish Game Setup Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Indian-Rope-Hero-3D-Playable-Game
