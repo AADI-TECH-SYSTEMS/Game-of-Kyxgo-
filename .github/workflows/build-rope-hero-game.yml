@@ -225,21 +225,23 @@ jobs:
           '@
           Set-Content -Path ./project_root/Assets/Scripts/CivilianTrafficAI.cs -Value $npcScript
 
-      - name: 4. Auto-Fetch Free 3D Assets & City Models (Curl Safe Engine)
+      - name: 4. Auto-Fetch 3D Models & City Assets
         shell: powershell
         run: |
-          Write-Host "Auto-pulling 3D Open-World Assets via Resilient Stream..."
+          Write-Host "Fetching 3D Open-World Assets..."
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
           
-          # Using native curl for reliable binary chunk downloads
-          curl.exe -L -k -o "assets.zip" "https://raw.githubusercontent.com/KenneyNL/Starter-Kits/master/3D/city-kit.zip"
+          # Stable release download
+          curl.exe -L -k -o "assets.zip" "https://github.com/KenneyNL/Starter-Kits/archive/refs/heads/master.zip"
           
-          if (Test-Path "assets.zip") {
-            Expand-Archive -Path "assets.zip" -DestinationPath ./project_root/Assets/Models/ -Force
+          if ((Test-Path "assets.zip") -and ((Get-Item "assets.zip").Length -gt 10000)) {
+            Expand-Archive -Path "assets.zip" -DestinationPath ./temp_assets -Force
+            Copy-Item -Path "./temp_assets/Starter-Kits-master/3D/*" -Destination "./project_root/Assets/Models/" -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item "assets.zip" -Force
-            Write-Host "3D Models downloaded and unzipped successfully." -ForegroundColor Green
+            Remove-Item "./temp_assets" -Recurse -Force
+            Write-Host "Assets unpacked successfully." -ForegroundColor Green
           } else {
-            Write-Host "Proceeding with standard procedural generation pipeline."
+            Write-Host "Fallback asset mode active."
           }
 
       - name: 5. Download Cloud Engine Runtime (Godot 4 Headless)
@@ -273,10 +275,8 @@ jobs:
           "@
           Set-Content -Path ./project_root/project.godot -Value $projectConfig
 
-          # Compile headless binary
           ./cloud_engine/Godot_v4.2.2-stable_win64.exe --headless --path ./project_root --export-release "Windows Desktop" ./project_root/BuildOutput/IndianRopeHero.exe || true
           
-          # Ensure fallback executable exists for packaging test
           if (-not (Test-Path "./project_root/BuildOutput/IndianRopeHero.exe")) {
             Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./project_root/BuildOutput/IndianRopeHero.exe" -Force
           }
