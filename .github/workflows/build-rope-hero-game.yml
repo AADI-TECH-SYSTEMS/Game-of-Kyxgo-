@@ -1,18 +1,18 @@
-name: Indian Rope Hero 3D - Full Production Engine
+name: Indian Rope Hero 3D - Full Universal Production Engine
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-full-game:
-    name: Build & Package Certified 3D Game
+  build-and-package-game:
+    name: Build Universal 3D Game
     runs-on: windows-latest
 
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Initialize Core Directories
+      - name: 2. Initialize Directory Architecture
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
@@ -22,7 +22,7 @@ jobs:
           mkdir -Force ./msix_package/Assets
           mkdir -Force ./final_release
 
-      - name: 3. Generate Microsoft Store Certified UI Icons
+      - name: 3. Generate Microsoft Store Compliant Icons
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Drawing
@@ -55,51 +55,39 @@ jobs:
           Generate-Icon "./msix_package/Assets/Square44x44Logo.png" 44 44 "IRH"
           Generate-Icon "./msix_package/Assets/SplashScreen.png" 620 300 "INDIAN ROPE HERO 3D"
 
-      - name: 4. Inject 3D Config & Visuals
+      - name: 4. Inject 3D Config & Compatibility Shaders
         shell: powershell
         run: |
-          # Project Config
+          # Universal Low-End Compatible Project Config (OpenGL 3)
           $projectConfig = @"
           config_version=5
           [application]
           config/name="Indian Rope Hero 3D"
           run/main_scene="res://scenes/MainCity.tscn"
-          config/features=PackedStringArray("4.2", "Forward Plus")
+          config/features=PackedStringArray("4.2", "GL Compatibility")
           [display]
-          window/size/viewport_width=1920
-          window/size/viewport_height=1080
+          window/size/viewport_width=1280
+          window/size/viewport_height=720
           window/stretch/mode="canvas_items"
           window/stretch/aspect="expand"
           [rendering]
-          anti_aliasing/quality/msaa_3d=2
+          renderer/rendering_method="gl_compatibility"
+          renderer/rendering_method.mobile="gl_compatibility"
+          driver/threads/thread_model=2
           "@
           Set-Content -Path ./project_root/project.godot -Value $projectConfig
 
-          # Complete 3D City Scene (Skyscrapers, Roads, Player, Camera, Lighting & HUD)
+          # Complete 3D City Scene (Roads, Modern Buildings, Character, Pedestrians, Coins, HUD)
           $sceneData = @"
-          [gd_scene load_steps=22 format=3]
+          [gd_scene load_steps=18 format=3]
 
           [ext_resource type="Script" path="res://scripts/RopeHero.gd" id="1_hero"]
           [ext_resource type="Script" path="res://scripts/CivilianAI.gd" id="2_civ"]
           [ext_resource type="Script" path="res://scripts/Coin.gd" id="3_coin"]
           [ext_resource type="Script" path="res://scripts/HUDManager.gd" id="4_hud"]
 
-          [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-          sky_top_color = Color(0.18, 0.52, 0.92, 1)
-          ground_bottom_color = Color(0.12, 0.12, 0.12, 1)
-
-          [sub_resource type="Sky" id="Sky_1"]
-          sky_material = SubResource("SkyMat")
-
-          [sub_resource type="Environment" id="Env_1"]
-          background_mode = 2
-          sky = SubResource("Sky_1")
-          ambient_light_source = 3
-          tonemap_mode = 2
-          glow_enabled = true
-
           [sub_resource type="StandardMaterial3D" id="Mat_Road"]
-          albedo_color = Color(0.16, 0.17, 0.2, 1)
+          albedo_color = Color(0.15, 0.16, 0.18, 1)
 
           [sub_resource type="BoxMesh" id="Mesh_Ground"]
           material = SubResource("Mat_Road")
@@ -110,12 +98,6 @@ jobs:
 
           [sub_resource type="StandardMaterial3D" id="Mat_Building_Blue"]
           albedo_color = Color(0.12, 0.4, 0.75, 1)
-          metallic = 0.5
-          roughness = 0.2
-
-          [sub_resource type="StandardMaterial3D" id="Mat_Building_Red"]
-          albedo_color = Color(0.75, 0.22, 0.22, 1)
-          metallic = 0.4
 
           [sub_resource type="BoxMesh" id="Mesh_Skyscraper"]
           material = SubResource("Mat_Building_Blue")
@@ -150,8 +132,6 @@ jobs:
 
           [sub_resource type="StandardMaterial3D" id="Mat_Gold"]
           albedo_color = Color(1.0, 0.85, 0.0, 1)
-          metallic = 0.9
-          roughness = 0.1
 
           [sub_resource type="CylinderMesh" id="Mesh_Coin"]
           material = SubResource("Mat_Gold")
@@ -166,12 +146,8 @@ jobs:
 
           [node name="MainCity" type="Node3D"]
 
-          [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
-          environment = SubResource("Env_1")
-
           [node name="SunLight" type="DirectionalLight3D" parent="."]
           transform = Transform3D(0.866, -0.353, 0.353, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 80, 0)
-          shadow_enabled = true
 
           [node name="GroundCity" type="StaticBody3D" parent="."]
           transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
@@ -271,10 +247,10 @@ jobs:
           "@
           Set-Content -Path ./project_root/scenes/MainCity.tscn -Value $sceneData
 
-      - name: 5. Inject Complete Character & Gameplay Scripts
+      - name: 5. Inject Character & Action Logic
         shell: powershell
         run: |
-          # 1. Main Hero Physics & Web Swing Engine
+          # Rope Hero Physics Engine
           $heroScript = @'
           extends CharacterBody3D
 
@@ -315,15 +291,10 @@ jobs:
           func _input(event):
               if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed) or Input.is_key_pressed(KEY_E):
                   shoot_rope()
-              if Input.is_key_pressed(KEY_Q):
-                  execute_shockwave()
 
           func shoot_rope():
               grapple_target = global_position + (-transform.basis.z * 50.0) + Vector3(0, 45, 0)
               is_grappling = true
-
-          func execute_shockwave():
-              print("Shockwave Attack Triggered!")
 
           func add_coin(value: int):
               total_coins += value
@@ -333,7 +304,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/RopeHero.gd -Value $heroScript
 
-          # 2. Civilian AI
+          # Civilian Pedestrian AI
           $civScript = @'
           extends CharacterBody3D
 
@@ -354,7 +325,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/CivilianAI.gd -Value $civScript
 
-          # 3. Gold Coin Mechanism
+          # Coin Logic
           $coinScript = @'
           extends Area3D
 
@@ -371,7 +342,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/Coin.gd -Value $coinScript
 
-          # 4. Dynamic HUD Canvas Manager
+          # HUD Logic
           $hudScript = @'
           extends CanvasLayer
 
@@ -383,7 +354,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/HUDManager.gd -Value $hudScript
 
-      - name: 6. Download Standalone 3D Engine Core
+      - name: 6. Download Headless Engine Binary
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
@@ -392,7 +363,7 @@ jobs:
           Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./msix_package/IndianRopeHero.exe" -Force
           Copy-Item -Path "./project_root/*" -Destination "./msix_package/" -Recurse -Force
 
-      - name: 7. Inject Microsoft Store AppxManifest.xml
+      - name: 7. Inject Store AppxManifest.xml
         shell: powershell
         run: |
           $manifest = @"
@@ -443,7 +414,6 @@ jobs:
           Write-Host "Found MakeAppx at: $makeAppx" -ForegroundColor Cyan
           Write-Host "Found SignTool at: $signTool" -ForegroundColor Cyan
 
-          # Generate Trusted Code Signing Certificate
           $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=AadiTechSystems, O=AadiTechSystems, C=IN" `
                   -KeyUsage DigitalSignature -FriendlyName "AadiTechStoreCert" `
                   -CertStoreLocation "Cert:\CurrentUser\My" `
@@ -452,10 +422,7 @@ jobs:
           $pwd = ConvertTo-SecureString -String "AadiRopeHero2026" -Force -AsPlainText
           Export-PfxCertificate -Cert $cert -FilePath "./msix_package/StoreCert.pfx" -Password $pwd
 
-          # Pack MSIX Container
           & $makeAppx pack /d ./msix_package /p ./final_release/IndianRopeHero3D_v1.0.0.msix /nv /l
-
-          # Apply Authenticode Digital Signature
           & $signTool sign /fd SHA256 /f "./msix_package/StoreCert.pfx" /p "AadiRopeHero2026" ./final_release/IndianRopeHero3D_v1.0.0.msix
 
           Write-Host "MSIX Package successfully signed and verified!" -ForegroundColor Green
