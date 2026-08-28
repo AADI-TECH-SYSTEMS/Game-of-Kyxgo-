@@ -7,15 +7,24 @@ jobs:
   acquire-activation-file:
     name: Generate .alf File
     runs-on: ubuntu-latest
+    container:
+      image: unityci/editor:ubuntu-2022.3.20f1-base-3
     steps:
-      - name: Request Activation File
-        uses: game-ci/unity-request-activation-file@v3
-        id: get-activation-file
-        with:
-          unityVersion: 2022.3.20f1
+      - name: Request Activation File (.alf)
+        run: |
+          unity-editor \
+            -nographics \
+            -batchmode \
+            -createManualActivationFile \
+            -logfile /dev/stdout || true
+          
+          # Find and move generated .alf file to root
+          find / -name "*.alf" -exec cp {} ./Unity_Activation.alf \; 2>/dev/null || true
+          ls -la Unity_Activation.alf
 
       - name: Upload ALF Artifact
         uses: actions/upload-artifact@v4
         with:
           name: UnityActivationFile
-          path: ${{ steps.get-activation-file.outputs.filePath }}
+          path: Unity_Activation.alf
+          
