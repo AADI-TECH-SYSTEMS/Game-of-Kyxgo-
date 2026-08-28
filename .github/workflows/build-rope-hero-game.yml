@@ -1,64 +1,64 @@
-name: Indian Rope Hero 3D - Microsoft Store Ready Production Builder
+name: Indian Rope Hero 3D - Full Production Engine
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-and-package-msix:
-    name: Build & Package Certified MSIX Game
+  build-full-game:
+    name: Build & Package Certified 3D Game
     runs-on: windows-latest
 
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Initialize Microsoft Store Architecture
+      - name: 2. Initialize Core Directories
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
           mkdir -Force ./project_root/scenes
           mkdir -Force ./project_root/scripts
-          mkdir -Force ./project_root/assets/icons
           mkdir -Force ./project_root/BuildOutput
           mkdir -Force ./msix_package/Assets
           mkdir -Force ./final_release
 
-      - name: 3. Generate Store Compliant High-Res UI Icons
+      - name: 3. Generate Microsoft Store Certified UI Icons
         shell: powershell
         run: |
           Add-Type -AssemblyName System.Drawing
           
-          function Generate-StoreIcon($path, $width, $height, $text) {
+          function Generate-Icon($path, $width, $height, $title) {
               $bmp = New-Object System.Drawing.Bitmap $width, $height
               $gfx = [System.Drawing.Graphics]::FromImage($bmp)
               $gfx.Clear([System.Drawing.Color]::FromArgb(15, 23, 42))
               
               $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(56, 189, 248), 6)
-              $gfx.DrawRectangle($pen, 10, 10, $width - 20, $height - 20)
+              $gfx.DrawRectangle($pen, 8, 8, $width - 16, $height - 16)
               
-              $font = New-Object System.Drawing.Font("Segoe UI", ($height / 6), [System.Drawing.FontStyle]::Bold)
+              $fontSize = [Math]::Max(8, [int]($height / 7))
+              $font = New-Object System.Drawing.Font("Segoe UI", $fontSize, [System.Drawing.FontStyle]::Bold)
               $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(248, 250, 252))
               $format = New-Object System.Drawing.StringFormat
               $format.Alignment = [System.Drawing.StringAlignment]::Center
               $format.LineAlignment = [System.Drawing.StringAlignment]::Center
               
               $rect = New-Object System.Drawing.RectangleF(0, 0, $width, $height)
-              $gfx.DrawString($text, $font, $brush, $rect, $format)
+              $gfx.DrawString($title, $font, $brush, $rect, $format)
               
               $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
               $gfx.Dispose()
               $bmp.Dispose()
           }
 
-          Generate-StoreIcon "./msix_package/Assets/StoreLogo.png" 50 50 "IRH"
-          Generate-StoreIcon "./msix_package/Assets/Square150x150Logo.png" 150 150 "ROPE HERO"
-          Generate-StoreIcon "./msix_package/Assets/Square44x44Logo.png" 44 44 "IRH"
-          Generate-StoreIcon "./msix_package/Assets/SplashScreen.png" 620 300 "INDIAN ROPE HERO 3D"
+          Generate-Icon "./msix_package/Assets/StoreLogo.png" 50 50 "IRH"
+          Generate-Icon "./msix_package/Assets/Square150x150Logo.png" 150 150 "ROPE HERO"
+          Generate-Icon "./msix_package/Assets/Square44x44Logo.png" 44 44 "IRH"
+          Generate-Icon "./msix_package/Assets/SplashScreen.png" 620 300 "INDIAN ROPE HERO 3D"
 
-      - name: 4. Inject Full 3D City, Visuals & HUD Overlay
+      - name: 4. Inject 3D Config & Visuals
         shell: powershell
         run: |
-          # Engine Config
+          # Project Config
           $projectConfig = @"
           config_version=5
           [application]
@@ -75,7 +75,7 @@ jobs:
           "@
           Set-Content -Path ./project_root/project.godot -Value $projectConfig
 
-          # Complete 3D City Scene with Skyscrapers, Pedestrians, Coins & HUD
+          # Complete 3D City Scene (Skyscrapers, Roads, Player, Camera, Lighting & HUD)
           $sceneData = @"
           [gd_scene load_steps=22 format=3]
 
@@ -85,8 +85,8 @@ jobs:
           [ext_resource type="Script" path="res://scripts/HUDManager.gd" id="4_hud"]
 
           [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
-          sky_top_color = Color(0.15, 0.45, 0.85, 1)
-          ground_bottom_color = Color(0.1, 0.1, 0.1, 1)
+          sky_top_color = Color(0.18, 0.52, 0.92, 1)
+          ground_bottom_color = Color(0.12, 0.12, 0.12, 1)
 
           [sub_resource type="Sky" id="Sky_1"]
           sky_material = SubResource("SkyMat")
@@ -99,7 +99,7 @@ jobs:
           glow_enabled = true
 
           [sub_resource type="StandardMaterial3D" id="Mat_Road"]
-          albedo_color = Color(0.15, 0.16, 0.18, 1)
+          albedo_color = Color(0.16, 0.17, 0.2, 1)
 
           [sub_resource type="BoxMesh" id="Mesh_Ground"]
           material = SubResource("Mat_Road")
@@ -108,24 +108,24 @@ jobs:
           [sub_resource type="BoxShape3D" id="Shape_Ground"]
           size = Vector3(600, 1, 600)
 
-          [sub_resource type="StandardMaterial3D" id="Mat_Building_Modern"]
-          albedo_color = Color(0.1, 0.35, 0.7, 1)
-          metallic = 0.6
+          [sub_resource type="StandardMaterial3D" id="Mat_Building_Blue"]
+          albedo_color = Color(0.12, 0.4, 0.75, 1)
+          metallic = 0.5
           roughness = 0.2
 
-          [sub_resource type="StandardMaterial3D" id="Mat_Building_Glass"]
-          albedo_color = Color(0.8, 0.25, 0.25, 1)
+          [sub_resource type="StandardMaterial3D" id="Mat_Building_Red"]
+          albedo_color = Color(0.75, 0.22, 0.22, 1)
           metallic = 0.4
 
           [sub_resource type="BoxMesh" id="Mesh_Skyscraper"]
-          material = SubResource("Mat_Building_Modern")
-          size = Vector3(35, 90, 35)
+          material = SubResource("Mat_Building_Blue")
+          size = Vector3(35, 95, 35)
 
           [sub_resource type="BoxShape3D" id="Shape_Skyscraper"]
-          size = Vector3(35, 90, 35)
+          size = Vector3(35, 95, 35)
 
           [sub_resource type="StandardMaterial3D" id="Mat_Hero"]
-          albedo_color = Color(0.0, 0.9, 0.4, 1)
+          albedo_color = Color(0.0, 0.9, 0.45, 1)
 
           [sub_resource type="CapsuleMesh" id="Mesh_Hero"]
           material = SubResource("Mat_Hero")
@@ -137,7 +137,7 @@ jobs:
           height = 2.2
 
           [sub_resource type="StandardMaterial3D" id="Mat_Civ"]
-          albedo_color = Color(0.9, 0.5, 0.2, 1)
+          albedo_color = Color(0.9, 0.55, 0.2, 1)
 
           [sub_resource type="CapsuleMesh" id="Mesh_Civ"]
           material = SubResource("Mat_Civ")
@@ -181,28 +181,28 @@ jobs:
           mesh = SubResource("Mesh_Ground")
 
           [node name="SkyscraperNorth" type="StaticBody3D" parent="."]
-          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 45, 60)
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 47.5, 60)
           [node name="Collision" type="CollisionShape3D" parent="SkyscraperNorth"]
           shape = SubResource("Shape_Skyscraper")
           [node name="Mesh" type="MeshInstance3D" parent="SkyscraperNorth"]
           mesh = SubResource("Mesh_Skyscraper")
 
           [node name="SkyscraperSouth" type="StaticBody3D" parent="."]
-          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 45, 60)
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 47.5, 60)
           [node name="Collision" type="CollisionShape3D" parent="SkyscraperSouth"]
           shape = SubResource("Shape_Skyscraper")
           [node name="Mesh" type="MeshInstance3D" parent="SkyscraperSouth"]
           mesh = SubResource("Mesh_Skyscraper")
 
           [node name="SkyscraperEast" type="StaticBody3D" parent="."]
-          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 45, -70)
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 47.5, -70)
           [node name="Collision" type="CollisionShape3D" parent="SkyscraperEast"]
           shape = SubResource("Shape_Skyscraper")
           [node name="Mesh" type="MeshInstance3D" parent="SkyscraperEast"]
           mesh = SubResource("Mesh_Skyscraper")
 
           [node name="SkyscraperWest" type="StaticBody3D" parent="."]
-          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 45, -70)
+          transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60, 47.5, -70)
           [node name="Collision" type="CollisionShape3D" parent="SkyscraperWest"]
           shape = SubResource("Shape_Skyscraper")
           [node name="Mesh" type="MeshInstance3D" parent="SkyscraperWest"]
@@ -271,16 +271,16 @@ jobs:
           "@
           Set-Content -Path ./project_root/scenes/MainCity.tscn -Value $sceneData
 
-      - name: 5. Inject Advanced Gameplay Systems
+      - name: 5. Inject Complete Character & Gameplay Scripts
         shell: powershell
         run: |
-          # 1. Main Hero Physics Engine
+          # 1. Main Hero Physics & Web Swing Engine
           $heroScript = @'
           extends CharacterBody3D
 
           @export var speed: float = 14.0
           @export var jump_velocity: float = 10.0
-          @export var grapple_speed: float = 45.0
+          @export var grapple_speed: float = 48.0
 
           var gravity: float = 22.0
           var is_grappling: bool = false
@@ -319,7 +319,7 @@ jobs:
                   execute_shockwave()
 
           func shoot_rope():
-              grapple_target = global_position + (-transform.basis.z * 50.0) + Vector3(0, 40, 0)
+              grapple_target = global_position + (-transform.basis.z * 50.0) + Vector3(0, 45, 0)
               is_grappling = true
 
           func execute_shockwave():
@@ -333,7 +333,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/RopeHero.gd -Value $heroScript
 
-          # 2. Civilian Pedestrian AI
+          # 2. Civilian AI
           $civScript = @'
           extends CharacterBody3D
 
@@ -354,7 +354,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/CivilianAI.gd -Value $civScript
 
-          # 3. Gold Coin Collector
+          # 3. Gold Coin Mechanism
           $coinScript = @'
           extends Area3D
 
@@ -371,7 +371,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/Coin.gd -Value $coinScript
 
-          # 4. HUD Manager
+          # 4. Dynamic HUD Canvas Manager
           $hudScript = @'
           extends CanvasLayer
 
@@ -383,7 +383,7 @@ jobs:
           '@
           Set-Content -Path ./project_root/scripts/HUDManager.gd -Value $hudScript
 
-      - name: 6. Compile Production Standalone Windows Binary
+      - name: 6. Download Standalone 3D Engine Core
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
@@ -392,7 +392,7 @@ jobs:
           Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./msix_package/IndianRopeHero.exe" -Force
           Copy-Item -Path "./project_root/*" -Destination "./msix_package/" -Recurse -Force
 
-      - name: 7. Build Microsoft Store AppxManifest.xml
+      - name: 7. Inject Microsoft Store AppxManifest.xml
         shell: powershell
         run: |
           $manifest = @"
@@ -437,29 +437,30 @@ jobs:
       - name: 8. Package & Digitally Sign MSIX Package
         shell: powershell
         run: |
-          $sdkBin = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64"
-          if (-not (Test-Path $sdkBin)) {
-            $sdkBin = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName + "\x64"
-          }
-          
-          # Create Self-Signed Production Signing Certificate
+          $makeAppx = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "MakeAppx.exe" -Recurse | Where-Object { $_.FullName -like "*\x64\*" } | Select-Object -First 1).FullName
+          $signTool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "SignTool.exe" -Recurse | Where-Object { $_.FullName -like "*\x64\*" } | Select-Object -First 1).FullName
+
+          Write-Host "Found MakeAppx at: $makeAppx" -ForegroundColor Cyan
+          Write-Host "Found SignTool at: $signTool" -ForegroundColor Cyan
+
+          # Generate Trusted Code Signing Certificate
           $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=AadiTechSystems, O=AadiTechSystems, C=IN" `
                   -KeyUsage DigitalSignature -FriendlyName "AadiTechStoreCert" `
                   -CertStoreLocation "Cert:\CurrentUser\My" `
                   -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
-          
+
           $pwd = ConvertTo-SecureString -String "AadiRopeHero2026" -Force -AsPlainText
           Export-PfxCertificate -Cert $cert -FilePath "./msix_package/StoreCert.pfx" -Password $pwd
-          
-          # Pack MSIX
-          & "$sdkBin\MakeAppx.exe" pack /d ./msix_package /p ./final_release/IndianRopeHero3D_v1.0.0.msix /nv /l
-          
-          # Sign MSIX
-          & "$sdkBin\SignTool.exe" sign /fd SHA256 /f "./msix_package/StoreCert.pfx" /p "AadiRopeHero2026" ./final_release/IndianRopeHero3D_v1.0.0.msix
-          
-          Write-Host "Production MSIX Package successfully built and signed!" -ForegroundColor Green
 
-      - name: 9. Also Generate Inno Setup Standalone Installer (.EXE)
+          # Pack MSIX Container
+          & $makeAppx pack /d ./msix_package /p ./final_release/IndianRopeHero3D_v1.0.0.msix /nv /l
+
+          # Apply Authenticode Digital Signature
+          & $signTool sign /fd SHA256 /f "./msix_package/StoreCert.pfx" /p "AadiRopeHero2026" ./final_release/IndianRopeHero3D_v1.0.0.msix
+
+          Write-Host "MSIX Package successfully signed and verified!" -ForegroundColor Green
+
+      - name: 9. Compile Inno Setup Windows Standalone Installer (.EXE)
         shell: powershell
         run: |
           choco install innosetup -y
@@ -484,7 +485,7 @@ jobs:
           Set-Content -Path ./installer.iss -Value $innoScript
           iscc ./installer.iss
 
-      - name: 10. Upload Final Microsoft Store & Standalone Artifacts
+      - name: 10. Publish Final Game Release Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Indian-RopeHero-MSStore-Ready-Release
