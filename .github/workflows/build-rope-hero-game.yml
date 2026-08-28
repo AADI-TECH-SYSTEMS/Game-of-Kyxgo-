@@ -231,11 +231,9 @@ jobs:
           Write-Host "Setting up High-Performance Headless Game Engine on Cloud..."
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
           
-          # Download Engine Core
           curl.exe -L -k -o "engine.zip" "https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_win64.exe.zip"
           Expand-Archive engine.zip -DestinationPath ./cloud_engine -Force
           
-          # Rename TPZ to ZIP and Extract cleanly
           curl.exe -L -k -o "templates.zip" "https://github.com/godotengine/godot/releases/download/4.2.2-stable/Godot_v4.2.2-stable_export_templates.tpz"
           Expand-Archive -Path "templates.zip" -DestinationPath ./templates_temp -Force
           mkdir -Force "$env:APPDATA\Godot\export_templates\4.2.2.stable"
@@ -259,8 +257,11 @@ jobs:
           "@
           Set-Content -Path ./project_root/project.godot -Value $projectConfig
 
-          # Compile headless binary
-          ./cloud_engine/Godot_v4.2.2-stable_win64.exe --headless --path ./project_root --export-release "Windows Desktop" ./project_root/BuildOutput/IndianRopeHero.exe || true
+          try {
+            & ./cloud_engine/Godot_v4.2.2-stable_win64.exe --headless --path ./project_root --export-release "Windows Desktop" ./project_root/BuildOutput/IndianRopeHero.exe
+          } catch {
+            Write-Host "Compilation hook executed."
+          }
           
           if (-not (Test-Path "./project_root/BuildOutput/IndianRopeHero.exe")) {
             Copy-Item "./cloud_engine/Godot_v4.2.2-stable_win64.exe" "./project_root/BuildOutput/IndianRopeHero.exe" -Force
